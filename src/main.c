@@ -9,17 +9,47 @@
 #include <zephyr/device.h>
 #include <zephyr/lorawan/lorawan.h>
 #include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/lora.h>
+
+// LEDS
+#define ON  1
+#define OFF 0
+
+#define LED0_NODE DT_ALIAS(led0)
+static const struct gpio_dt_spec pin_test_led0 = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+
+#define LED1_NODE DT_ALIAS(led1)
+static const struct gpio_dt_spec pin_test_led1 = GPIO_DT_SPEC_GET(LED1_NODE, gpios);
+
+#define LED2_NODE DT_ALIAS(led2)
+static const struct gpio_dt_spec pin_test_led2 = GPIO_DT_SPEC_GET(LED2_NODE, gpios);
+
+#define LED3_NODE DT_ALIAS(led3)
+static const struct gpio_dt_spec pin_test_led3 = GPIO_DT_SPEC_GET(LED3_NODE, gpios);
+
+#define LED1 &pin_test_led0
+#define LED2 &pin_test_led1
+#define LED3 &pin_test_led2
+#define LED4 &pin_test_led3
+
+#define CON_STATUS_LED LED1
+#define RUN_STATUS_LED LED2
 
 /* Customize based on network configuration */
-#define LORAWAN_DEV_EUI			{ 0xDD, 0xEE, 0xAA, 0xDD, 0xBB, 0xEE,\
-					  0xEE, 0xFF }
-#define LORAWAN_JOIN_EUI		{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\
-					  0x00, 0x00 }
-#define LORAWAN_APP_KEY			{ 0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE,\
-					  0xD2, 0xA6, 0xAB, 0xF7, 0x15, 0x88,\
-					  0x09, 0xCF, 0x4F, 0x3C }
+#define LORAWAN_DEV_EUI			{0x60, 0x81, 0xF9, 0x82, 0xBD, 0x7F, 0x80, 0xD6} //LITTLE ENDIAN  msb
+#define LORAWAN_JOIN_EUI        {0x60, 0x81, 0xF9, 0x82, 0xBD, 0x7F, 0x80, 0xD6}
+#define LORAWAN_APP_KEY	{ 0x1C, 0x06, 0x9B, 0x51, 0x42, 0xE7, 0xA8, 0xAB, 0xF1, 0x57, 0x2A, 0x65, 0xA2, 0x88, 0x9D, 0x54}
+
+
+#define LORAWAN_DEV_EUI_HELIUM  {0x60, 0x81, 0xF9, 0x07, 0x40, 0x35, 0x0D, 0x69} //msb
+#define LORAWAN_JOIN_EUI_HELIUM {0x60, 0x81, 0xF9, 0x82, 0xBD, 0x7F, 0x80, 0xD5} //msb
+#define LORAWAN_APP_KEY_HELIUM  {0xE0, 0x07, 0x38, 0x87, 0xAF, 0x4F, 0x16, 0x6E, 0x8E, 0x52, 0xD3, 0x27, 0x0F, 0x2E, 0x64, 0x6F}
 
 #define DELAY K_MSEC(10000)
+
+#define MAX_DATA_LEN 10
+
 
 #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 #include <zephyr/logging/log.h>
@@ -45,13 +75,85 @@ static void lorwan_datarate_changed(enum lorawan_datarate dr)
 	LOG_INF("New Datarate: DR_%d, Max Payload %d", dr, max_size);
 }
 
+
+void configure_led(void)
+{
+	gpio_pin_configure_dt(LED1, GPIO_OUTPUT);
+	gpio_pin_configure_dt(LED2, GPIO_OUTPUT);
+	gpio_pin_configure_dt(LED3, GPIO_OUTPUT);
+	gpio_pin_configure_dt(LED4, GPIO_OUTPUT);
+}
+
+void turn_off_all_leds(void)
+{
+	gpio_pin_set_dt(LED1, OFF);
+	gpio_pin_set_dt(LED2, OFF);
+	gpio_pin_set_dt(LED3, OFF);
+	gpio_pin_set_dt(LED4, OFF);
+}
+
+void led_on_off(struct gpio_dt_spec led, uint8_t value)
+{
+	gpio_pin_set_dt(&led, value);
+}
+
+void lora_send_func(void)
+{
+	const struct device *const lora_dev = DEVICE_DT_GET(DT_NODELABEL(lora0));
+
+	struct lora_modem_config config;
+	int ret;
+
+	if (!device_is_ready(lora_dev)) {
+		LOG_ERR("%s Device not ready", lora_dev->name);
+		return;
+	}
+
+	config.frequency = 865100000;
+	config.bandwidth = BW_125_KHZ;
+	config.datarate = SF_10;
+	config.preamble_len = 8;
+	config.coding_rate = CR_4_5;
+	config.iq_inverted = false;
+	config.public_network = false;
+	config.tx_power = 4;
+	config.tx = true;
+
+	ret = lora_config(lora_dev, &config);
+	if (ret < 0) {
+		LOG_ERR("LoRa config failed");
+		return;
+	}
+
+	while (1) {
+		ret = lora_send(lora_dev, data, 10);
+		if (ret < 0) {
+			LOG_ERR("LoRa send failed");
+			return;
+		}
+
+		LOG_INF("Data sent!");
+
+		/* Send data at 1s interval */
+		k_sleep(K_MSEC(1000));
+	}
+}
+
+
+
 void main(void)
 {
 	const struct device *lora_dev;
 	struct lorawan_join_config join_cfg;
-	uint8_t dev_eui[] = LORAWAN_DEV_EUI;
-	uint8_t join_eui[] = LORAWAN_JOIN_EUI;
-	uint8_t app_key[] = LORAWAN_APP_KEY;
+	
+
+	uint8_t dev_eui[] = LORAWAN_DEV_EUI_HELIUM;
+	uint8_t join_eui[] = LORAWAN_JOIN_EUI_HELIUM;
+	uint8_t app_key[] = LORAWAN_APP_KEY_HELIUM;
+
+    configure_led();
+	turn_off_all_leds();
+  
 	int ret;
 
 	struct lorawan_downlink_cb downlink_cb = {
@@ -59,7 +161,11 @@ void main(void)
 		.cb = dl_callback
 	};
 
-	lora_dev = DEVICE_DT_GET(DT_ALIAS(lora0));
+	//lora_dev = DEVICE_DT_GET(DT_ALIAS(lora0)); // this command is not working
+    lora_dev = DEVICE_DT_GET(DT_NODELABEL(lora0));
+
+
+
 	if (!device_is_ready(lora_dev)) {
 		LOG_ERR("%s: device not ready.", lora_dev->name);
 		return;
@@ -75,6 +181,12 @@ void main(void)
 		return;
 	}
 #endif
+  
+    //ADDED BY FLAVIO
+	
+    //lorawan_enable_adr(1);
+	//lorawan_set_conf_msg_tries(10);
+
 
 	ret = lorawan_start();
 	if (ret < 0) {
@@ -91,17 +203,37 @@ void main(void)
 	join_cfg.otaa.app_key = app_key;
 	join_cfg.otaa.nwk_key = app_key;
 
-	LOG_INF("Joining network over OTAA");
-	ret = lorawan_join(&join_cfg);
-	if (ret < 0) {
-		LOG_ERR("lorawan_join_network failed: %d", ret);
-		return;
-	}
+    gpio_pin_set_dt(LED4, OFF);
+    ret=-1;
+    while(ret<0){
+		gpio_pin_set_dt(LED3, ON);
+	 LOG_INF("Joining network over OTAA");
+	 ret = lorawan_join(&join_cfg);
+	 if (ret < 0) {
+	 	 LOG_ERR("lorawan_join_network failed: %d", ret);
+		 //return;
+		 if (ret == -111){
+			device_is_ready(lora_dev);
+			lorawan_set_region(LORAWAN_REGION_EU868);
+			lorawan_start();
+		 	lorawan_register_downlink_callback(&downlink_cb);
+	        lorawan_register_dr_changed_callback(lorwan_datarate_changed);
 
+			join_cfg.mode = LORAWAN_ACT_OTAA;
+			join_cfg.dev_eui = dev_eui;
+			join_cfg.otaa.join_eui = join_eui;
+			join_cfg.otaa.app_key = app_key;
+			join_cfg.otaa.nwk_key = app_key;
+		 }
+	  }
+	  gpio_pin_set_dt(LED3, OFF);
+	  k_sleep(K_MSEC(500));//500ms
+
+     }
+    gpio_pin_set_dt(LED4, ON);
 	LOG_INF("Sending data...");
 	while (1) {
-		ret = lorawan_send(2, data, sizeof(data),
-				   LORAWAN_MSG_CONFIRMED);
+		ret = lorawan_send(2, data, sizeof(data),LORAWAN_MSG_CONFIRMED);
 
 		/*
 		 * Note: The stack may return -EAGAIN if the provided data
@@ -121,6 +253,7 @@ void main(void)
 		}
 
 		LOG_INF("Data sent!");
+		return;// just once
 		k_sleep(DELAY);
 	}
 }

@@ -1,0 +1,55 @@
+// To get started, press Ctrl+Space to bring up the completion menu and view the available nodes.
+
+// You can also use the buttons in the sidebar to perform actions on nodes.
+// Actions currently available include:
+
+// * Enabling / disabling the node
+// * Adding the bus to a bus
+// * Removing the node
+// * Connecting ADC channels
+
+// For more help, browse the DeviceTree documentation at https://docs.zephyrproject.org/latest/guides/dts/index.html
+// You can also visit the nRF DeviceTree extension documentation at https://nrfconnect.github.io/vscode-nrf-connect/devicetree/nrfdevicetree.html
+
+/{
+aliases{
+
+    lora = &lora0;
+};
+};
+
+&spi4 {
+    cs-gpios = <&gpio0 28 GPIO_ACTIVE_LOW>;
+    lora0: lorax@0 {
+		        compatible = "semtech,sx1276";
+		        reset-gpios = <&gpio1 10 GPIO_ACTIVE_LOW>;
+		        dio-gpios = 
+                 <&gpio1 11 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>, //DIO-0
+                 <&gpio1 12 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>; //DIO-1
+                 //<&gpio1 7  (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;  //DIO-2
+		        power-amplifier-output = "pa-boost";
+		        reg = <0>;
+		        spi-max-frequency = <1000000>;
+		        label = "SX1276";
+          };
+
+};
+
+/*
+reset            P1.10
+DIO-0            P1.11
+DIO-1            P1.12
+DIO-2            P1.07
+mosi laranja     P1.13
+miso amarelo     P1.14
+clk  verde       P1.15
+nss  blue        P0.28
+
+ SX1276 D0 
+<&gpio0 26 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>,
+ SX1276 D1 
+<&gpio0 35 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>,
+ SX1276 D2 
+<&gpio0 34 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
+
+*/
