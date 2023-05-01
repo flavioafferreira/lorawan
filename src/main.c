@@ -12,6 +12,9 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/lora.h>
 
+
+
+
 // LEDS
 #define ON  1
 #define OFF 0
@@ -182,17 +185,16 @@ void main(void)
 	}
 #endif
   
-    //ADDED BY FLAVIO
-	
-    //lorawan_enable_adr(1);
-	//lorawan_set_conf_msg_tries(10);
-
 
 	ret = lorawan_start();
 	if (ret < 0) {
 		LOG_ERR("lorawan_start failed: %d", ret);
 		return;
 	}
+
+    
+
+	lorawan_set_class(LORAWAN_CLASS_C);
 
 	lorawan_register_downlink_callback(&downlink_cb);
 	lorawan_register_dr_changed_callback(lorwan_datarate_changed);
@@ -216,18 +218,12 @@ void main(void)
 			device_is_ready(lora_dev);
 			lorawan_set_region(LORAWAN_REGION_EU868);
 			lorawan_start();
-		 	lorawan_register_downlink_callback(&downlink_cb);
-	        lorawan_register_dr_changed_callback(lorwan_datarate_changed);
-
-			join_cfg.mode = LORAWAN_ACT_OTAA;
-			join_cfg.dev_eui = dev_eui;
-			join_cfg.otaa.join_eui = join_eui;
-			join_cfg.otaa.app_key = app_key;
-			join_cfg.otaa.nwk_key = app_key;
+			ret = lorawan_join(&join_cfg);
+		 	
 		 }
 	  }
 	  gpio_pin_set_dt(LED3, OFF);
-	  k_sleep(K_MSEC(500));//500ms
+	  k_sleep(K_MSEC(3000));//500ms
 
      }
     gpio_pin_set_dt(LED4, ON);
