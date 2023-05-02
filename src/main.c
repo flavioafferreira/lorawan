@@ -11,9 +11,11 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/lora.h>
+#include <zephyr/random/rand32.h>
 
-
-
+#define DEFAULT_RADIO_NODE DT_NODELABEL(lora0)
+BUILD_ASSERT(DT_NODE_HAS_STATUS(DEFAULT_RADIO_NODE, okay), "No default LoRa radio specified in DT");
+#define DEFAULT_RADIO DT_LABEL(DEFAULT_RADIO_NODE)
 
 // LEDS
 #define ON  1
@@ -40,10 +42,9 @@ static const struct gpio_dt_spec pin_test_led3 = GPIO_DT_SPEC_GET(LED3_NODE, gpi
 #define RUN_STATUS_LED LED2
 
 /* Customize based on network configuration */
-#define LORAWAN_DEV_EUI			{0x60, 0x81, 0xF9, 0x82, 0xBD, 0x7F, 0x80, 0xD6} //LITTLE ENDIAN  msb
-#define LORAWAN_JOIN_EUI        {0x60, 0x81, 0xF9, 0x82, 0xBD, 0x7F, 0x80, 0xD6}
-#define LORAWAN_APP_KEY	{ 0x1C, 0x06, 0x9B, 0x51, 0x42, 0xE7, 0xA8, 0xAB, 0xF1, 0x57, 0x2A, 0x65, 0xA2, 0x88, 0x9D, 0x54}
-
+#define LORAWAN_DEV_EUI			{0x70, 0xB3, 0xD5, 0x7E, 0xD8, 0x00, 0x13, 0x44} //LITTLE ENDIAN  msb
+#define LORAWAN_JOIN_EUI        {0x60, 0x81, 0xF9, 0x62, 0x41, 0x65, 0x5D, 0x0B}
+#define LORAWAN_APP_KEY	        {0x10, 0xF4, 0xCD, 0x51, 0x20, 0x52, 0x7A, 0x9E, 0x14, 0x75, 0x0A, 0xA4, 0x7F, 0x54, 0x46, 0x0B}
 
 #define LORAWAN_DEV_EUI_HELIUM  {0x60, 0x81, 0xF9, 0x07, 0x40, 0x35, 0x0D, 0x69} //msb
 #define LORAWAN_JOIN_EUI_HELIUM {0x60, 0x81, 0xF9, 0x82, 0xBD, 0x7F, 0x80, 0xD5} //msb
@@ -56,7 +57,7 @@ static const struct gpio_dt_spec pin_test_led3 = GPIO_DT_SPEC_GET(LED3_NODE, gpi
 
 #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(lorawan_class_a);
+LOG_MODULE_REGISTER(lorawan_node);
 
 char data[] = {'h', 'e', 'l', 'l', 'o', 'w', 'o', 'r', 'l', 'd'};
 
@@ -154,6 +155,12 @@ void main(void)
 	uint8_t join_eui[] = LORAWAN_JOIN_EUI_HELIUM;
 	uint8_t app_key[] = LORAWAN_APP_KEY_HELIUM;
 
+	//uint8_t dev_eui[] = LORAWAN_DEV_EUI;
+	//uint8_t join_eui[] = LORAWAN_JOIN_EUI;
+	//uint8_t app_key[] = LORAWAN_APP_KEY;
+
+
+
     configure_led();
 	turn_off_all_leds();
   
@@ -186,44 +193,69 @@ void main(void)
 #endif
   
 
-	ret = lorawan_start();
+
+
+
+
+ret = lorawan_start();
 	if (ret < 0) {
 		LOG_ERR("lorawan_start failed: %d", ret);
 		return;
 	}
 
-    
+    k_sleep(K_MSEC(500));//500ms
 
-	lorawan_set_class(LORAWAN_CLASS_C);
+lorawan_enable_adr( true );
 
-	lorawan_register_downlink_callback(&downlink_cb);
+lorawan_register_downlink_callback(&downlink_cb);
 	lorawan_register_dr_changed_callback(lorwan_datarate_changed);
 
-	join_cfg.mode = LORAWAN_ACT_OTAA;
+
+    uint32_t random = sys_rand32_get();
+    uint16_t dev_nonce = random & 0x0000FFFF;
+
+	join_cfg.mode = LORAWAN_CLASS_A;
 	join_cfg.dev_eui = dev_eui;
 	join_cfg.otaa.join_eui = join_eui;
 	join_cfg.otaa.app_key = app_key;
 	join_cfg.otaa.nwk_key = app_key;
+    join_cfg.otaa.dev_nonce = dev_nonce;
 
+	
     gpio_pin_set_dt(LED4, OFF);
     ret=-1;
     while(ret<0){
+		gpio_pin_set_dt(LED3, OFF);
 		gpio_pin_set_dt(LED3, ON);
+		gpio_pin_set_dt(LED3, OFF);
+		gpio_pin_set_dt(LED3, ON);
+		gpio_pin_set_dt(LED3, OFF);
+
 	 LOG_INF("Joining network over OTAA");
-	 ret = lorawan_join(&join_cfg);
-	 if (ret < 0) {
-	 	 LOG_ERR("lorawan_join_network failed: %d", ret);
-		 //return;
-		 if (ret == -111){
-			device_is_ready(lora_dev);
-			lorawan_set_region(LORAWAN_REGION_EU868);
-			lorawan_start();
-			ret = lorawan_join(&join_cfg);
-		 	
-		 }
-	  }
-	  gpio_pin_set_dt(LED3, OFF);
-	  k_sleep(K_MSEC(3000));//500ms
+	
+   do {
+    	ret = lorawan_join(&join_cfg);
+    	if (ret < 0) {
+	    	printk("lorawan_join_network failed: %d\n\n", ret);
+            printk("Sleeping for 10s to try again to join network.\n\n");
+            k_sleep(K_MSEC(10000));
+	    }
+    } while ( ret < 0 );
+
+
+
+
+	    gpio_pin_set_dt(LED3, OFF);
+		gpio_pin_set_dt(LED3, ON);
+		gpio_pin_set_dt(LED3, OFF);
+		gpio_pin_set_dt(LED3, ON);
+		gpio_pin_set_dt(LED3, OFF);
+		gpio_pin_set_dt(LED3, ON);
+		gpio_pin_set_dt(LED3, OFF);
+	
+
+
+	  k_sleep(K_MSEC(100));//500ms
 
      }
     gpio_pin_set_dt(LED4, ON);
