@@ -262,7 +262,7 @@ lorawan_register_downlink_callback(&downlink_cb);
      }
     gpio_pin_set_dt(LED4, ON);
 	LOG_INF("Sending data...");
-	uint64_t i=0;
+	uint64_t i=0,j=0;
 	while (1) {
 		gpio_pin_set_dt(LED4, ON);
 		ret = lorawan_send(2, data_test, sizeof(data_test),LORAWAN_MSG_CONFIRMED);
@@ -284,11 +284,24 @@ lorawan_register_downlink_callback(&downlink_cb);
 			//return;
 		}else{
 
-		   LOG_INF("Data sent! %d",i);
+		   LOG_INF("Data sent! %lld",i);
 		   gpio_pin_set_dt(LED4, OFF);
 		   i++;
 		}
+        /*
+		This specific duty cycle requirement of <1 % translates to a maximum of 36 seconds of TX
+        on-time within one hour and a maximum length of 3.6 seconds for any single transmission 
+		   https://www.sensorsportal.com/HTML/DIGEST/december_2013/PDF_vol_161/P_1743.pdf
+
+		 If you go beyond 1% the system will give you this message:
+         LoRaWAN Send failed: Duty-cycle restricted
+
+		*/
+		j=0;
+		while (j<10){
+		  k_sleep(DELAY);
+		  j++;
+		}
 		
-		k_sleep(DELAY);
 	}
 }
