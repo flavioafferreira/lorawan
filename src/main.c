@@ -54,12 +54,17 @@ static const struct gpio_dt_spec pin_test_led3 = GPIO_DT_SPEC_GET(LED3_NODE, gpi
 
 #define MAX_DATA_LEN 10
 
-
 #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(lorawan_node);
 
 char data[] = {'h', 'e', 'l', 'l', 'o', 'w', 'o', 'r', 'l', 'd'};
+
+
+
+char data_test[] =  { 0X02 , 0Xae , 0X71 , 0Xa9 , 0X5e , 
+                      0Xee , 0X4c , 0X70 , 0X7c , 0Xc9 , 
+					  0X85 , 0Xb5 , 0Xec , 0Xd9 , 0X89 , 0X20};
 
 static void dl_callback(uint8_t port, bool data_pending,
 			int16_t rssi, int8_t snr,
@@ -243,8 +248,6 @@ lorawan_register_downlink_callback(&downlink_cb);
     } while ( ret < 0 );
 
 
-
-
 	    gpio_pin_set_dt(LED3, OFF);
 		gpio_pin_set_dt(LED3, ON);
 		gpio_pin_set_dt(LED3, OFF);
@@ -254,14 +257,15 @@ lorawan_register_downlink_callback(&downlink_cb);
 		gpio_pin_set_dt(LED3, OFF);
 	
 
-
 	  k_sleep(K_MSEC(100));//500ms
 
      }
     gpio_pin_set_dt(LED4, ON);
 	LOG_INF("Sending data...");
+	uint64_t i=0;
 	while (1) {
-		ret = lorawan_send(2, data, sizeof(data),LORAWAN_MSG_CONFIRMED);
+		gpio_pin_set_dt(LED4, ON);
+		ret = lorawan_send(2, data_test, sizeof(data_test),LORAWAN_MSG_CONFIRMED);
 
 		/*
 		 * Note: The stack may return -EAGAIN if the provided data
@@ -277,11 +281,14 @@ lorawan_register_downlink_callback(&downlink_cb);
 
 		if (ret < 0) {
 			LOG_ERR("lorawan_send failed: %d", ret);
-			return;
-		}
+			//return;
+		}else{
 
-		LOG_INF("Data sent!");
-		return;// just once
+		   LOG_INF("Data sent! %d",i);
+		   gpio_pin_set_dt(LED4, OFF);
+		   i++;
+		}
+		
 		k_sleep(DELAY);
 	}
 }
