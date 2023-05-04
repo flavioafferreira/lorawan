@@ -42,9 +42,9 @@ static const struct gpio_dt_spec pin_test_led3 = GPIO_DT_SPEC_GET(LED3_NODE, gpi
 #define RUN_STATUS_LED LED2
 
 /* Customize based on network configuration */
-#define LORAWAN_DEV_EUI			{0x70, 0xB3, 0xD5, 0x7E, 0xD8, 0x00, 0x13, 0x44} //LITTLE ENDIAN  msb
-#define LORAWAN_JOIN_EUI        {0x60, 0x81, 0xF9, 0x62, 0x41, 0x65, 0x5D, 0x0B}
-#define LORAWAN_APP_KEY	        {0x10, 0xF4, 0xCD, 0x51, 0x20, 0x52, 0x7A, 0x9E, 0x14, 0x75, 0x0A, 0xA4, 0x7F, 0x54, 0x46, 0x0B}
+//#define LORAWAN_DEV_EUI			{0x70, 0xB3, 0xD5, 0x7E, 0xD8, 0x00, 0x13, 0x44} //LITTLE ENDIAN  msb
+//#define LORAWAN_JOIN_EUI        {0x60, 0x81, 0xF9, 0x62, 0x41, 0x65, 0x5D, 0x0B}
+//#define LORAWAN_APP_KEY	        {0x10, 0xF4, 0xCD, 0x51, 0x20, 0x52, 0x7A, 0x9E, 0x14, 0x75, 0x0A, 0xA4, 0x7F, 0x54, 0x46, 0x0B}
 
 #define LORAWAN_DEV_EUI_HELIUM  {0x60, 0x81, 0xF9, 0x07, 0x40, 0x35, 0x0D, 0x69} //msb
 #define LORAWAN_JOIN_EUI_HELIUM {0x60, 0x81, 0xF9, 0x82, 0xBD, 0x7F, 0x80, 0xD5} //msb
@@ -62,9 +62,35 @@ char data[] = {'h', 'e', 'l', 'l', 'o', 'w', 'o', 'r', 'l', 'd'};
 
 
 
-char data_test[] =  { 0X02 , 0Xae , 0X71 , 0Xa9 , 0X5e , 
-                      0Xee , 0X4c , 0X70 , 0X7c , 0Xc9 , 
-					  0X85 , 0Xb5 , 0Xec , 0Xd9 , 0X89 , 0X20};
+char data_test[] =  { 0X00 , 0X01 ,
+                      0X00 , 0X02 , 
+					  0X00 , 0X00 , 0X00 , 0X01 ,
+					  0X00 , 0X00 , 0X00 , 0X01 };
+
+/*
+  //Custom Script -- Integration Google Sheets
+  //https://www.youtube.com/watch?v=M5VGos3YTpI&t=407s
+  
+function Decoder(bytes,port){
+
+   var decoded={};
+   decoded.temperature  = (bytes[0]*256 + bytes[1])
+   decoded.humidity     = (bytes[2]*256 + bytes[3])
+   decoded.pressure     = (bytes[4]*16777216 + bytes[5]*65536 + bytes[6]*256 + bytes[7])
+   decoded.gas          = (bytes[8]*16777216 + bytes[9]*65536+ bytes[10]*256 + bytes[11])
+ 
+ var decodedPayload = {
+    "temperature": decoded.temperature,
+    "humidity"   : decoded.humidity,
+    "pressure"   : decoded.pressure,
+    "gas"        : decoded.gas,
+
+ };
+  return Serialize(decodedPayload)
+}
+
+*/
+
 
 static void dl_callback(uint8_t port, bool data_pending,
 			int16_t rssi, int8_t snr,
