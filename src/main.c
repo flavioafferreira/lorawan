@@ -42,9 +42,9 @@ static const struct gpio_dt_spec pin_test_led3 = GPIO_DT_SPEC_GET(LED3_NODE, gpi
 #define RUN_STATUS_LED LED2
 
 /* Customize based on network configuration */
-//#define LORAWAN_DEV_EUI			{0x70, 0xB3, 0xD5, 0x7E, 0xD8, 0x00, 0x13, 0x44} //LITTLE ENDIAN  msb
-//#define LORAWAN_JOIN_EUI        {0x60, 0x81, 0xF9, 0x62, 0x41, 0x65, 0x5D, 0x0B}
-//#define LORAWAN_APP_KEY	        {0x10, 0xF4, 0xCD, 0x51, 0x20, 0x52, 0x7A, 0x9E, 0x14, 0x75, 0x0A, 0xA4, 0x7F, 0x54, 0x46, 0x0B}
+#define LORAWAN_DEV_EUI			{0x70, 0xB3, 0xD5, 0x7E, 0xD8, 0x00, 0x13, 0x44} //LITTLE ENDIAN  msb
+#define LORAWAN_JOIN_EUI        {0x60, 0x81, 0xF9, 0x62, 0x41, 0x65, 0x5D, 0x0B}
+#define LORAWAN_APP_KEY	        {0x10, 0xF4, 0xCD, 0x51, 0x20, 0x52, 0x7A, 0x9E, 0x14, 0x75, 0x0A, 0xA4, 0x7F, 0x54, 0x46, 0x0B}
 
 #define LORAWAN_DEV_EUI_HELIUM  {0x60, 0x81, 0xF9, 0x07, 0x40, 0x35, 0x0D, 0x69} //msb
 #define LORAWAN_JOIN_EUI_HELIUM {0x60, 0x81, 0xF9, 0x82, 0xBD, 0x7F, 0x80, 0xD5} //msb
@@ -70,7 +70,7 @@ char data_test[] =  { 0X00 , 0X01 ,
 /*
   //Custom Script -- Integration Google Sheets
   //https://www.youtube.com/watch?v=M5VGos3YTpI&t=407s
-  
+
 function Decoder(bytes,port){
 
    var decoded={};
@@ -190,7 +190,7 @@ void main(void)
 	//uint8_t join_eui[] = LORAWAN_JOIN_EUI;
 	//uint8_t app_key[] = LORAWAN_APP_KEY;
 
-
+    uint64_t i=0,j=0;
 
     configure_led();
 	turn_off_all_leds();
@@ -245,7 +245,7 @@ lorawan_register_downlink_callback(&downlink_cb);
     uint32_t random = sys_rand32_get();
     uint16_t dev_nonce = random & 0x0000FFFF;
 
-	join_cfg.mode = LORAWAN_CLASS_A;
+	join_cfg.mode = LORAWAN_CLASS_A; //was A
 	join_cfg.dev_eui = dev_eui;
 	join_cfg.otaa.join_eui = join_eui;
 	join_cfg.otaa.app_key = app_key;
@@ -262,14 +262,35 @@ lorawan_register_downlink_callback(&downlink_cb);
 		gpio_pin_set_dt(LED3, ON);
 		gpio_pin_set_dt(LED3, OFF);
 
-	 LOG_INF("Joining network over OTAA");
+	 LOG_INF("Started");
 	
+ 
+   LOG_INF("Joining network over OTAA");
+   
+
    do {
     	ret = lorawan_join(&join_cfg);
     	if (ret < 0) {
 	    	printk("lorawan_join_network failed: %d\n\n", ret);
             printk("Sleeping for 10s to try again to join network.\n\n");
             k_sleep(K_MSEC(10000));
+
+        if (ret == -116  || ret == -111  ){
+           lorawan_start();
+		   lorawan_enable_adr( true );
+            lorawan_register_downlink_callback(&downlink_cb);
+			lorawan_register_dr_changed_callback(lorwan_datarate_changed);
+     		random = sys_rand32_get();
+     		dev_nonce = random & 0x0000FFFF;
+			join_cfg.mode = LORAWAN_CLASS_A; //was A
+			join_cfg.dev_eui = dev_eui;
+			join_cfg.otaa.join_eui = join_eui;
+			join_cfg.otaa.app_key = app_key;
+			join_cfg.otaa.nwk_key = app_key;
+    		join_cfg.otaa.dev_nonce = dev_nonce;
+		    k_sleep(K_MSEC(10000));
+		}
+
 	    }
     } while ( ret < 0 );
 
@@ -288,9 +309,10 @@ lorawan_register_downlink_callback(&downlink_cb);
      }
     gpio_pin_set_dt(LED4, ON);
 	LOG_INF("Sending data...");
-	uint64_t i=0,j=0;
+	
 	while (1) {
 		gpio_pin_set_dt(LED4, ON);
+		
 		ret = lorawan_send(2, data_test, sizeof(data_test),LORAWAN_MSG_CONFIRMED);
 
 		/*
@@ -306,7 +328,7 @@ lorawan_register_downlink_callback(&downlink_cb);
 		}
 
 		if (ret < 0) {
-			LOG_ERR("lorawan_send failed: %d", ret);
+			LOG_ERR("lorawan_send confirm failed: %d", ret);
 			//return;
 		}else{
 
